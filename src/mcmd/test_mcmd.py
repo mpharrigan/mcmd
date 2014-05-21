@@ -1,6 +1,8 @@
 __author__ = 'harrigan'
 
-from . import mcmd
+#TODO: change name
+from mcmd2 import mcmd
+import glob
 
 
 class WriteDirectoryListing(mcmd.Parsable):
@@ -12,22 +14,32 @@ class WriteDirectoryListing(mcmd.Parsable):
 
     """
 
-    def __init__(self, out_fn, glob_str='sample/*.txt', limit=-1):
-        pass
+    def __init__(self, out_fn, glob_str='data/*.txt', limit=-1):
+        self.out_fn = out_fn
+        self.glob_str = glob_str
+        self.limit = limit
 
     def main(self):
-        pass
+        fns = glob.glob(self.glob_str)
+        limit = self.limit
+        if limit > 0 and limit < len(fns):
+            fns = fns[:limit]
+
+        with open(self.out_fn, 'w') as f:
+            f.write('\n'.join(fns))
 
 
 class WriteOnlyPart(WriteDirectoryListing):
     """Write only filename or dirname."""
 
-    def __init__(self, super_args, which='dirname'):
+    def __init__(self, out_fn, glob_str='sample/*.txt', limit=-1,
+                 which='dirname'):
         pass
 
 
 def parse():
-    pass
+    c_inst = mcmd.parsify(WriteDirectoryListing)
+    c_inst.main()
 
 
 if __name__ == "__main__":

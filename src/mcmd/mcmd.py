@@ -1,6 +1,7 @@
 __author__ = 'harrigan'
 
 import argparse
+import inspect
 
 # Maximum length of the short names (one-dash arguments)
 MAXSHORT = 3
@@ -22,13 +23,14 @@ class Attrib(object):
         self.dtype = None
         self.defval = None
         self.helptxt = None
+        self.required = False
 
 
 def get_attribute_help(docstring):
     """From a docstring, get help strings
 
     We expect lines of the form
-    :attrib [atrribute_name]: help text
+    :param [atrribute_name]: help text
 
     :param docstring: The docstring to parse
     :returns: A dictionary of (attribute, help_text)
@@ -37,7 +39,7 @@ def get_attribute_help(docstring):
     linesplits = docstring.splitlines()
     for line in linesplits:
         line = line.strip()
-        if line.startswith(':attr'):
+        if line.startswith(':param'):
             colon_split = line.split(':')[1:]
             name_split = colon_split[0].split()
             if len(name_split) != 2:
@@ -47,17 +49,19 @@ def get_attribute_help(docstring):
     return docdict
 
 
-def generate_atributes(var_dict):
+def generate_atributes(c_obj):
     """Yield attributes by iterating over a dictionary of class attributes.
 
-    :param var_dict: found from vars(class)
+    :param c_obj: Class to parse
     """
+    initargs = inspect.getargspec(c_obj.__init__.im_func)
+    n_defaults = len(initargs.defaults)
+    n_attr = len(initargs.args)
+
     attr_short_names = set()
-    for attr in var_dict:
+    for i, attr in enumerate(initargs.args):
 
-
-        # Ignore private
-        if attr.startswith('_'):
+        if attr == 'self':
             continue
 
         ao = Attrib()
@@ -83,21 +87,16 @@ def generate_atributes(var_dict):
         ao.long_name = '--{}'.format(attr)
         ao.metavar = underscores[-1]
 
-        # Figure out datatype
-        defval = var_dict[attr]
-        if defval is not None:
-            if defval.__class__ == type:
-                ao.dtype = defval
-                ao.defval = None
-            elif hasattr(defval, '__call__'):
-                # exclude functions
-                continue
-            else:
-                ao.dtype = defval.__class__
-                ao.defval = defval
+        # Figure out datatype and default value
+        if (n_attr - i) <= n_defaults:
+            defval = initargs.defaults[i - (n_attr - n_defaults)]
+            ao.dtype = defval.__class__
+            ao.defval = defval
         else:
-            continue
-
+            # TODO: How to specify datatype?
+            ao.defval = None
+            ao.dtype = str
+            ao.required = True
         yield ao
 
 
@@ -130,10 +129,10 @@ def add_to_parser(c_obj, parser):
 
     if not add_subparsers(c_obj, parser):
         # Only set_defaults for 'leaf' subparsers
-        parser.set_defaults(c_obj=c_obj)
+        parser.set_defaults(c_leaf=c_obj)
 
     docdict = get_attribute_help(c_obj.__doc__)
-    for ao in generate_atributes(vars(c_obj)):
+    for ao in generate_atributes(c_obj):
 
         try:
             ao.helptxt = docdict[ao.varname]
@@ -145,11 +144,12 @@ def add_to_parser(c_obj, parser):
         if ao.short_name is not None:
             parser.add_argument(ao.long_name, ao.short_name,
                                 metavar=ao.metavar, default=ao.defval,
-                                type=ao.dtype, help=ao.helptxt)
+                                type=ao.dtype, help=ao.helptxt,
+                                required=ao.required)
         else:
             parser.add_argument(ao.long_name, metavar=ao.metavar,
                                 default=ao.defval, type=ao.dtype,
-                                help=ao.helptxt)
+                                help=ao.helptxt, required=ao.required)
 
 
 def parsify(c_obj):
@@ -163,7 +163,13 @@ def parsify(c_obj):
     parser = argparse.ArgumentParser(description=first_doc_line,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     add_to_parser(c_obj, parser)
+    args = parser.parse_args()
 
-    c_inst = c_obj()
-    parser.parse_args(namespace=c_inst)
+    # Prepare arguments for init
+    init_dict = vars(args)
+    c_leaf = args.c_leaf
+    del init_dict['c_leaf']
+
+    c_inst = c_leaf(**init_dict)
     return c_inst
+
