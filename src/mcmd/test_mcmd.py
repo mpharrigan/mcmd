@@ -1,7 +1,6 @@
 __author__ = 'harrigan'
 
-#TODO: change name
-from mcmd2 import mcmd
+import mcmd
 import glob
 
 
@@ -22,7 +21,7 @@ class WriteDirectoryListing(mcmd.Parsable):
     def main(self):
         fns = glob.glob(self.glob_str)
         limit = self.limit
-        if limit > 0 and limit < len(fns):
+        if 0 < limit < len(fns):
             fns = fns[:limit]
 
         with open(self.out_fn, 'w') as f:
