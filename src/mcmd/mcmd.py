@@ -54,7 +54,7 @@ def generate_atributes(c_obj):
 
     :param c_obj: Class to parse
     """
-    initargs = inspect.getargspec(c_obj.__init__.im_func)
+    initargs = inspect.getargspec(c_obj.__init__)
     n_defaults = len(initargs.defaults)
     n_attr = len(initargs.args)
 
@@ -108,10 +108,11 @@ def add_subparsers(c_obj, ap_parser):
 
     :returns: True if we added subparsers
     """
-    if hasattr(c_obj, '_subparsers'):
+    subclasses = c_obj.__subclasses__()
+    if len(subclasses) > 0:
         ap_subparsers = ap_parser.add_subparsers()
-        for sub_cobj, pretty_name in c_obj._subparsers.items():
-            ap_sp = ap_subparsers.add_parser(pretty_name,
+        for sub_cobj in subclasses:
+            ap_sp = ap_subparsers.add_parser(sub_cobj._subcommand_shortname,
                                              formatter_class=argparse.ArgumentDefaultsHelpFormatter)
             add_to_parser(sub_cobj, ap_sp)
 
