@@ -31,6 +31,8 @@ class WriteDirectoryListing(mcmd.Parsable):
 class WriteOnlyPart(WriteDirectoryListing):
     """Write only filename or dirname."""
 
+    _subcommand_shortname = 'writeonly'
+
     def __init__(self, out_fn, glob_str='sample/*.txt', limit=-1,
                  which='dirname'):
         pass
